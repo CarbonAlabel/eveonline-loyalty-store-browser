@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>LP Stores</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.3/angular.min.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.3/angular-animate.min.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.3/angular-aria.min.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/angular_material/1.0.5/angular-material.min.js"></script>
+	<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/angular_material/1.0.5/angular-material.min.css">
+	<style>
+		.md-scale-animate{
+			transition:500ms all;
+			overflow:hidden;
+		}
+		.md-scale-animate.ng-hide{
+			height:0 !important;
+			margin-top:0;
+			margin-bottom:0;
+			transform:scale(0);
+		}
+	</style>
+	<script>
+		var app=angular.module("lp",["ngMaterial"]);
+		app.config(function($mdThemingProvider){
+			$mdThemingProvider.theme("default").primaryPalette("deep-purple").accentPalette("deep-orange");
+		});
+		app.controller("store",function($scope,$http,$timeout){
+			$scope.lpStoresTotal=0;
+			$scope.lpStoresLoaded=0;
+			$scope.lpStoresFailed=0;
+			$scope.lpStoresLoadingMode="indeterminate";
+			$scope.lpStoresError=false;
+			$scope.lpStoresFinished=false;
+
+			$scope.corpList=[];
+			$scope.corpInfo={};
+			$scope.corpSelected=false;
+
+			$scope.corpListSort=function(corpID){return $scope.corpInfo[corpID].name};
+
+			$scope.lpStoreFilter="";
+			$scope.lpStoreResults=[];
+			$scope.lpStoreSortActive="name";
+			$scope.lpStoreSorts={
+				name:{text:"Item name",sort:"item.name"},
+				quantity:{text:"Quantity",sort:["-quantity","item.name"]},
+				isk:{text:"ISK cost",sort:["iskCost","item.name"]},
+				point:{text:"Point cost",sort:["lpCost","akCost","item.name"]}
+			};
+
+			function loadCorpLpStoreList(href){
+				$http.get(href).then(function(response){
+					$scope.lpStoresLoadingMode="determinate";
+					$scope.lpStoresTotal=response.data.totalCount;
+					response.data.items.forEach(function(corp){loadCorpLpStore(corp)});
+				},function(){
+					$scope.lpStoresError=true;
+					$scope.lpStoresLoadingMode="";
+				});
+			}
+
+			function loadCorpLpStore(corp){
+				$http.get(corp.loyaltyStore.href).then(function(corpResponse){
+					$scope.lpStoresLoaded++;
+					$scope.corpList.push(corp.id);
+					$scope.corpInfo[corp.id]=corp;
+					$scope.corpInfo[corp.id].hqUrl=$scope.corpInfo[corp.id].headquarters.name.replace(/ /g,"_");
+					$scope.corpInfo[corp.id].count=corpResponse.data.totalCount;
+					$scope.corpInfo[corp.id].loyaltyStore=corpResponse.data.items;
+					if($scope.lpStoresLoaded==$scope.lpStoresTotal){
+						$scope.lpStoresFinished=true;
+					}
+				},function(){
+					$scope.lpStoresFailed++;
+					if($scope.lpStoresFailed>$scope.lpStoresTotal){
+						$scope.lpStoresError=true;
+						$scope.lpStoresLoadingMode="";
+					}
+					else{
+						$timeout(loadCorpLpStore,5000,true,corp);
+					}
+				});
+			}
+
+			loadCorpLpStoreList("https://crest-tq.eveonline.com/corporations/npccorps/");
+
+		});
+	</script>
+</head>
+<body ng-app="lp" ng-controller="store">
+<md-toolbar class="md-toolbar-tools">
+	<h1>EVE Online LP stores</h1>
+</md-toolbar>
+<md-content>
+	<md-card style="height:128px;" class="md-scale-animate" ng-hide="lpStoresFinished">
+		<md-card-title>
+			<md-card-title-text><span class="md-headline">Loading LP store data...</span></md-card-title-text>
+		</md-card-title>
+		<md-card-content ng-show="lpStoresError">CREST isn't responding, reload the page to try again.</md-card-content>
+		<md-card-content>
+			<md-progress-linear class="md-accent" ng-value="(lpStoresLoaded/lpStoresTotal)*100" md-mode="{{lpStoresLoadingMode}}"></md-progress-linear>
+		</md-card-content>
+	</md-card>
+	<md-card style="height:160px;" class="md-scale-animate" ng-show="lpStoresFinished">
+		<md-card-title>
+			<md-card-title-text><span class="md-headline">Select corporation</span></md-card-title-text>
+		</md-card-title>
+		<md-card-content layout>
+			<md-input-container flex="50">
+				<label>Corporation</label>
+				<md-select ng-model="corpSelected">
+					<md-option ng-repeat="corpID in corpList | orderBy:corpListSort" ng-if="corpInfo[corpID].count" value="{{corpID}}">
+						{{corpInfo[corpID].name}}
+					</md-option>
+				</md-select>
+			</md-input-container>
+			<md-input-container flex="25">
+				<label>Sort by</label>
+				<md-select ng-model="lpStoreSortActive">
+					<md-option ng-repeat="(sortID,sortInfo) in lpStoreSorts" value="{{sortID}}">
+						{{sortInfo.text}}
+					</md-option>
+				</md-select>
+			</md-input-container>
+			<md-input-container flex="25">
+				<label>Search</label>
+				<input type="text" ng-model="lpStoreFilter">
+			</md-input-container>
+		</md-card-content>
+	</md-card>
+	<md-card class="md-scale-animate" ng-show="corpSelected">
+		<md-card-header>
+			<md-card-avatar>
+				<img class="md-user-avatar" ng-src="https://image.eveonline.com/Corporation/{{corpSelected||1}}_64.png" style="border-radius:0;">
+			</md-card-avatar>
+			<md-card-header-text>
+				<span class="md-title">{{corpInfo[corpSelected].name}} [{{corpInfo[corpSelected].ticker}}]</span>
+				<span class="md-subhead" ng-if="corpInfo[corpSelected].headquarters.name">Headquarters:
+					<a ng-href="http://evemaps.dotlan.net/station/{{corpInfo[corpSelected].hqUrl}}">{{corpInfo[corpSelected].headquarters.name}}</a></span>
+			</md-card-header-text>
+		</md-card-header>
+		<md-card-content>
+			<p>{{corpInfo[corpSelected].description}}</p>
+		</md-card-content>
+		<md-list>
+			<md-divider></md-divider>
+				<md-list-item class="md-3-line"
+					ng-repeat="offer in corpInfo[corpSelected].loyaltyStore | filter:lpStoreFilter | orderBy:lpStoreSorts[lpStoreSortActive].sort as lpStoreResults">
+					<img class="md-avatar" ng-src="https://image.eveonline.com/Type/{{offer.item.id}}_64.png" style="border-radius:0;">
+					<div class="md-list-item-text">
+						<h3>{{offer.item.name}} x{{offer.quantity}}</h3>
+						<p>
+							<span>{{offer.iskCost | number:0}} ISK</span><br>
+							<span ng-if="!offer.akCost">{{offer.lpCost | number:0}} LP</span>
+							<span ng-if="offer.akCost">{{offer.akCost | number:0}} AK</span>
+						</p>
+					</div>
+					<span flex></span>
+					<div ng-repeat="requiredItem in offer.requiredItems track by requiredItem.item.id" style="margin:12px 6px;">
+						{{requiredItem.quantity}}x
+						<span style="font-size:0;">{{requiredItem.item.name}}</span>
+					<span>
+						<md-tooltip md-direction="left">{{requiredItem.item.name}}</md-tooltip>
+						<img class="md-avatar" ng-src="https://image.eveonline.com/Type/{{requiredItem.item.id}}_64.png" style="border-radius:0;margin:0;">
+					</span>
+					</div>
+					<md-divider ng-if="!$last"></md-divider>
+				</md-list-item>
+			<md-list-item class="md-2-line" ng-if="lpStoreResults.length==0">
+				<div class="md-list-item-text">
+					<h3>Couldn't find any such offers</h3>
+					<p>Try adjusting your query or selecting another corporation</p>
+					</div>
+			</md-list-item>
+		</md-list>
+	</md-card>
+	<md-card class="md-scale-animate" ng-show="corpSelected">
+		<md-card-content>&copy;2016 Carbon Alabel, all rights reserved.<br>All EVE Online related materials are property of CCP Games.</md-card-content>
+	</md-card>
+</md-content>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700">
+</body>
+</html>
