@@ -49,10 +49,16 @@ async function esiRequest(url, body) {
     while (delays.length) {
         await sleep(delays.pop());
         try {
-            return await fetch("https://esi.evetech.net" + url, body ? {
+            let response = await fetch("https://esi.evetech.net" + url, body ? {
                 method: "POST",
                 body: JSON.stringify(body)
-            } : undefined).then(r => r.json());
+            } : undefined);
+            if (response.ok || response.status === 404) {
+                return await response.json();
+            }
+            else {
+                latestError = new Error(`${response.status} ${response.statusText}: ${await response.text()}`);
+            }
         }
         catch (e) {
             latestError = e;
