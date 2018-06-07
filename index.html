@@ -20,11 +20,17 @@
 	margin-bottom: 0;
 	transform: scale(0);
 }
+.no-round{
+	border-radius: 0 !important;
+}
+.lp-store-offer{
+	user-select: all;
+}
 .offer-costs span{
 	display: block;
 }
-.no-round{
-	border-radius: 0 !important;
+.invisible-font{
+	font-size: 0;
 }
 .requirement-icon{
 	width: 40px;
@@ -212,7 +218,7 @@ app.controller("store", function ($scope) {
 		<!-- Loyalty point store offers -->
 		<md-list>
 			<md-divider></md-divider>
-			<md-list-item class="md-3-line"
+			<md-list-item class="md-3-line lp-store-offer"
 						  ng-repeat="offer in lpStores[selectedCorp.id] | orderBy:sortingMethods[sortingMethodActive].sort track by offer.offer_id">
 				<img class="md-avatar no-round" ng-src="https://image.eveonline.com/Type/{{ offer.type_id }}_64.png">
 				<div class="md-list-item-text">
@@ -224,13 +230,11 @@ app.controller("store", function ($scope) {
 					</p>
 				</div>
 				<span flex></span>
-				<div>
-					<span ng-repeat="item in offer.required_items track by item.type_id">
+				<div ng-repeat="item in offer.required_items track by item.type_id">
 					<md-tooltip md-direction="left">{{ names[item.type_id] }}</md-tooltip>
 					<span>{{ item.quantity }}x</span>
-					<span style="font-size:0;">{{ names[item.type_id] }}</span>
+					<span class="invisible-font">{{ names[item.type_id] }}</span>
 					<img class="requirement-icon" ng-src="https://image.eveonline.com/Type/{{ item.type_id }}_64.png">
-					</span>
 				</div>
 				<md-divider ng-if="!$last"></md-divider>
 			</md-list-item>
